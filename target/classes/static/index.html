@@ -1,0 +1,185 @@
+<html>
+
+<head>
+<link href="toastr.min.css" rel="stylesheet"/>
+<script type="text/javascript" src="jquery-1.12.2.min.js"></script>
+<script type="text/javascript" src="toastr.min.js"></script>
+<style>
+html { 
+  background: url(blurry_forest.jpg) no-repeat center center fixed;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+}
+</style>
+</head>
+<body >
+	
+	<h2>Books</h2>
+	
+	<div id="booksMain" style="border:2px solid darkslategrey">
+		<table id="booksTable" border="1">
+			<tr><th>Book Title</th><th>isbn</th><th>Author</th><th>Ops</th></tr>
+		</table>
+		<input type="button" value="Reload" onclick="refreshBooksTable()">
+		<input type="button" value="Add New Book" onclick="openAddBook()">
+	</div>
+	
+	<div id="bookNewDiv" style="display:none;border:2px solid green">
+		<h4>Create a New Book</h4>
+		Title:<input type="text" id="newTitle" /> <br />
+		Isbn:<input type="text" id="newIsbn"/> <br />
+		Author: <select id="newAuthor"></select> <br />
+		<input type="button" value="Add" onclick="addBook()">
+		<input type="button" value="Cancel" onclick="$('#bookNewDiv').hide();$('#booksMain').show();">
+	</div>
+	
+	<div id="bookEditDiv" style="display:none; border:2px solid blue">
+		<h4>Edit a Book</h4>
+		<input type="hidden" id="editBookId"/>
+		Title:<input type="text" id="editTitle" /> <br />
+		Isbn:<input type="text" id="editIsbn"/> <br />
+		Author: <select id="editAuthor"></select><br />
+		<input type="button" value="Save" onclick="updateBook()">
+		<input type="button" value="Cancel" onclick="$('#bookEditDiv').hide();$('#booksMain').show();">
+	</div>
+
+
+<!-- <select multiple="multiple" id="BooksAvailable"><option value="a">A</option><option value="b">B</option></select>
+<input type="button" name=">>" onclick="moveSelectedOptions('#BooksAvailable', '#BooksSelected')"/>
+<input type="button" name="<<" onclick="moveSelectedOptions('#BooksSelected', '#BooksAvailable')"/>
+<select multiple="multiple" id="BooksSelected"></select> -->
+
+<script type="text/javascript">
+
+
+function getContextPath() {
+   return window.location.pathname.substring(0, window.location.pathname.indexOf("/",2));
+}
+var restEndpoint = getContextPath() + "";
+
+function refreshBooksTable() {
+	$.ajax(restEndpoint +"/books", {
+		method: "GET",
+		success: function(books) {
+			$("#booksTable tr").each(function(i, r) {
+				if (i>0) r.remove();
+			});
+			for (var i=0; i<books.length;i++) {
+				var c = books[i];
+				var row = '<tr id="'+c.bookId+'">';
+				row+='<td>'+c.title+'</td>';
+				row+='<td>'+c.isbn + '</td>';
+				row+='<td>'+c.author+'</td>';
+				row+='<td><input type="button" value="Edit" onclick="openEditBook('+c.bookId+')" />'+
+						 '<input type="button" value="Delete" onclick="deleteBook('+c.bookId+')" /></td>';
+				row+='</tr>';
+				$('#booksTable tr:last').after(row);
+			}
+			toastr.info("Books reloaded")
+		}
+	});
+}
+refreshBooksTable();
+
+function populateAuthorCombo($authorCombo) {
+	$authorCombo.html("");
+	
+	$.ajax(restEndpoint + "/authors", {
+		method: "GET",
+		success: function(authors) {
+			$.each(authors, function (i, t) {
+			    $authorCombo.append('<option value="'+t.id+'">'+t.name+'</option>');
+			});
+		}
+	});
+}
+populateAuthorCombo($("#newAuthor"));
+populateAuthorCombo($("#editAuthor"));
+
+
+function deleteBook(bookId) {
+	$.ajax(restEndpoint +"/books/"+bookId, {
+		method: "DELETE",
+		success: function() {
+			toastr.success("Book deleted");
+			refreshBooksTable();
+		}
+	});
+}
+
+//------------- Book: UPDATE SCREEN --------------------
+
+function openEditBook(bookId) {
+	$.ajax(restEndpoint + "/books/"+bookId, {
+		method: "GET",
+		success: function(data) {
+			$("#editBookId").val(bookId);
+			$("#editTitle").val(data.title);
+			$("#editIsbn").val(data.isbn);
+			$("#editAuthor").val(data.author);
+			$('#booksMain').hide();
+			$('#bookEditDiv').show();
+		}
+	});
+}
+function updateBook() {
+	$.ajax(restEndpoint +"/books/" +$("#editBookId").val(), {
+		data: JSON.stringify({
+			author:$("#editAuthor option:selected").val(),
+			title:$("#editTitle").val(),
+			isbn:$("#editIsbn").val()
+		}),
+		method: "PUT",
+		contentType: "application/json",
+		success: function(data) {
+			toastr.success("Book Updated");
+			$('#booksMain').show();
+			$('#bookEditDiv').hide();
+			refreshBooksTable();
+		},
+		error: function(a,b,c) {
+			if (a.responseText) {
+				toastr.error(a.responseText);
+			}
+		}
+	});
+}
+
+// ------------- Book: CREATE SCREEN --------------------
+
+function openAddBook() {
+	$("#newTitle").val("");
+	$("#newDescription").val("");
+	$("#newAuthor").val(null);
+	$('#booksMain').hide();
+	$('#bookNewDiv').show();
+}
+function addBook() {
+	$.ajax(restEndpoint +"/books", {
+		data: JSON.stringify({
+			title:$("#newTitle").val(),
+			isbn:$("#newIsbn").val(),
+			authorId:$("#newAuthor option:selected").val()
+		}),
+		method: "POST",
+		contentType: "application/json",
+		success: function(data) {
+			toastr.success("Book added");
+			$('#booksMain').show();
+			$('#bookNewDiv').hide();
+			refreshBooksTable();
+		},
+		error: function(a,b,c) {
+			if (a.responseText) {
+				toastr.error(a.responseText);
+			}
+		}
+	});
+}
+
+
+</script>
+</body>
+</html>
